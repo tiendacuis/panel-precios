@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Panel de precios · Tienda Cuis</title>
+<style>
+  :root {
+    --bg: #FAF8F5;
+    --texto: #1A1A1A;
+    --texto-suave: #6b6b6b;
+    --borde: #E8E4DB;
+    --naranja: #E8673A;
+    --naranja-oscuro: #C4522C;
+    --navy: #2D2B45;
+    --verde: #9BA88D;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--texto);
+  }
+  header {
+    background: var(--navy);
+    color: #fff;
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  header h1 {
+    font-size: 15px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin: 0;
+    font-weight: 600;
+  }
+  header button {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  #login-view {
+    max-width: 340px;
+    margin: 100px auto;
+    background: #fff;
+    padding: 32px;
+    border-radius: 6px;
+    border: 1px solid var(--borde);
+  }
+  #login-view h2 {
+    margin-top: 0;
+    font-size: 18px;
+  }
+  #login-view input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 12px;
+    border: 1px solid var(--borde);
+    border-radius: 4px;
+    font-size: 14px;
+  }
+  #login-view button {
+    width: 100%;
+    padding: 10px;
+    background: var(--naranja);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  #login-error {
+    color: #c0392b;
+    font-size: 12px;
+    margin-bottom: 8px;
+    min-height: 16px;
+  }
+  main {
+    padding: 20px 24px 60px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .toolbar input[type=text] {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 10px;
+    border: 1px solid var(--borde);
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  .toolbar select {
+    padding: 8px 10px;
+    border: 1px solid var(--borde);
+    border-radius: 4px;
+    font-size: 13px;
+    background: #fff;
+  }
+  .btn-pdf {
+    background: var(--navy);
+    color: #fff;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border: 1px solid var(--borde);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--texto-suave);
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--borde);
+    background: #F4F1EC;
+  }
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--borde);
+    font-size: 13px;
+    vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  img.thumb {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    border: 1px solid var(--borde);
+    border-radius: 4px;
+    background: #fff;
+  }
+  td input[type=number] {
+    width: 90px;
+    padding: 6px 8px;
+    border: 1px solid var(--borde);
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  .categoria-tag {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--verde);
+    font-weight: 600;
+  }
+  .save-btn {
+    background: var(--naranja);
+    color: #fff;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .save-btn:disabled {
+    background: var(--borde);
+    color: var(--texto-suave);
+    cursor: default;
+  }
+  .save-btn.ok { background: #6b9b6f; }
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background-color: var(--borde);
+    transition: .2s;
+    border-radius: 20px;
+  }
+  .slider:before {
+    position: absolute; content: "";
+    height: 14px; width: 14px; left: 3px; bottom: 3px;
+    background-color: white;
+    transition: .2s;
+    border-radius: 50%;
+  }
+  input:checked + .slider { background-color: var(--verde); }
+  input:checked + .slider:before { transform: translateX(16px); }
+  #estado {
+    font-size: 12px;
+    color: var(--texto-suave);
+    margin-bottom: 10px;
+  }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="login-view">
+  <h2>Panel Tienda Cuis</h2>
+  <div id="login-error"></div>
+  <input type="text" id="usuario" placeholder="Usuario" autocomplete="username" />
+  <input type="password" id="clave" placeholder="Contraseña" autocomplete="current-password" />
+  <button onclick="login()">Ingresar</button>
+</div>
+
+<div id="app-view" class="hidden">
+  <header>
+    <h1>Panel de precios · Tienda Cuis</h1>
+    <button onclick="logout()">Salir</button>
+  </header>
+  <main>
+    <div class="toolbar">
+      <input type="text" id="buscador" placeholder="Buscar producto..." oninput="render()" />
+      <select id="filtroCategoria" onchange="render()">
+        <option value="todos">Todas las categorías</option>
+      </select>
+      <button class="btn-pdf" onclick="descargarPDF()">⬇ Descargar catálogo PDF</button>
+    </div>
+    <div id="estado">Cargando productos...</div>
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th>Producto</th>
+          <th>Categoría</th>
+          <th>Precio</th>
+          <th>Activo</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </main>
+</div>
+
+<script>
+let productos = [];
+
+async function checkSession() {
+  const r = await fetch('/api/session');
+  const data = await r.json();
+  if (data.logueado) {
+    mostrarApp();
+  }
+}
+
+async function login() {
+  const usuario = document.getElementById('usuario').value;
+  const clave = document.getElementById('clave').value;
+  const errorEl = document.getElementById('login-error');
+  errorEl.textContent = '';
+  try {
+    const r = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usuario, clave })
+    });
+    if (!r.ok) {
+      const data = await r.json();
+      errorEl.textContent = data.error || 'Error al ingresar';
+      return;
+    }
+    mostrarApp();
+  } catch (err) {
+    errorEl.textContent = 'No se pudo conectar con el servidor';
+  }
+}
+
+async function logout() {
+  await fetch('/api/logout', { method: 'POST' });
+  document.getElementById('app-view').classList.add('hidden');
+  document.getElementById('login-view').classList.remove('hidden');
+}
+
+function mostrarApp() {
+  document.getElementById('login-view').classList.add('hidden');
+  document.getElementById('app-view').classList.remove('hidden');
+  cargarProductos();
+}
+
+async function cargarProductos() {
+  const estado = document.getElementById('estado');
+  estado.textContent = 'Cargando productos...';
+  try {
+    const r = await fetch('/api/productos');
+    if (r.status === 401) { logout(); return; }
+    productos = await r.json();
+    estado.textContent = productos.length + ' productos cargados';
+    llenarFiltroCategorias();
+    render();
+  } catch (err) {
+    estado.textContent = 'Error al cargar productos: ' + err.message;
+  }
+}
+
+function llenarFiltroCategorias() {
+  const select = document.getElementById('filtroCategoria');
+  const categorias = [...new Set(productos.map(p => p.categoria).filter(Boolean))].sort();
+  select.innerHTML = '<option value="todos">Todas las categorías</option>' +
+    categorias.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+function render() {
+  const busqueda = document.getElementById('buscador').value.toLowerCase();
+  const categoria = document.getElementById('filtroCategoria').value;
+  const tbody = document.getElementById('tbody');
+
+  const filtrados = productos.filter(p => {
+    const matchNombre = p.nombre.toLowerCase().includes(busqueda);
+    const matchCat = categoria === 'todos' || p.categoria === categoria;
+    return matchNombre && matchCat;
+  });
+
+  tbody.innerHTML = filtrados.map(p => `
+    <tr data-row="${p.rowNumber}">
+      <td><img class="thumb" src="${p.imagen || ''}" onerror="this.style.visibility='hidden'" /></td>
+      <td>${p.nombre}</td>
+      <td><span class="categoria-tag">${p.categoria}</span></td>
+      <td><input type="number" step="1" value="${p.precio}" data-field="precio" /></td>
+      <td>
+        <label class="switch">
+          <input type="checkbox" data-field="activo" ${p.activo ? 'checked' : ''} />
+          <span class="slider"></span>
+        </label>
+      </td>
+      <td><button class="save-btn" onclick="guardar(${p.rowNumber}, this)">Guardar</button></td>
+    </tr>
+  `).join('');
+}
+
+async function guardar(rowNumber, btn) {
+  const tr = btn.closest('tr');
+  const precio = Number(tr.querySelector('[data-field="precio"]').value);
+  const activo = tr.querySelector('[data-field="activo"]').checked;
+
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  try {
+    const r = await fetch('/api/productos/' + rowNumber, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ precio, activo })
+    });
+    if (!r.ok) throw new Error('Error al guardar');
+
+    const p = productos.find(p => p.rowNumber === rowNumber);
+    if (p) { p.precio = precio; p.activo = activo; }
+
+    btn.textContent = '✓ Guardado';
+    btn.classList.add('ok');
+    setTimeout(() => {
+      btn.textContent = 'Guardar';
+      btn.classList.remove('ok');
+      btn.disabled = false;
+    }, 1500);
+  } catch (err) {
+    btn.textContent = 'Error';
+    btn.disabled = false;
+    setTimeout(() => { btn.textContent = 'Guardar'; }, 2000);
+  }
+}
+
+function descargarPDF() {
+  window.open('/api/catalogo.pdf', '_blank');
+}
+
+checkSession();
+</script>
+</body>
+</html>
