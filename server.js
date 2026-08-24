@@ -55,8 +55,8 @@ app.get("/api/productos", requireLogin, async (req, res) => {
 app.put("/api/productos/:rowNumber", requireLogin, async (req, res) => {
   try {
     const rowNumber = Number(req.params.rowNumber);
-    const { precio, activo } = req.body || {};
-    await actualizarProducto(rowNumber, { precio, activo });
+    const { precio, activo, imagen } = req.body || {};
+    await actualizarProducto(rowNumber, { precio, activo, imagen });
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
