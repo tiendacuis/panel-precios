@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const session = require("express-session");
 const path = require("path");
-const { getProductos, actualizarProducto } = require("./sheets");
+const { getProductos, actualizarProducto, moverProducto, agregarProducto } = require("./sheets");
 const { generarCatalogoPDF } = require("./catalogo-pdf");
 
 const app = express();
@@ -57,6 +57,35 @@ app.put("/api/productos/:rowNumber", requireLogin, async (req, res) => {
     const rowNumber = Number(req.params.rowNumber);
     const { precio, activo, imagen } = req.body || {};
     await actualizarProducto(rowNumber, { precio, activo, imagen });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/productos", requireLogin, async (req, res) => {
+  try {
+    const { nombre, precio, categoria, descripcion, imagen, activo } = req.body || {};
+    if (!nombre || !nombre.trim()) {
+      return res.status(400).json({ error: "El nombre es obligatorio" });
+    }
+    const resultado = await agregarProducto({ nombre, precio, categoria, descripcion, imagen, activo });
+    res.json({ ok: true, ...resultado });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/productos/:rowNumber/mover", requireLogin, async (req, res) => {
+  try {
+    const rowNumber = Number(req.params.rowNumber);
+    const { direccion } = req.body || {};
+    if (direccion !== "arriba" && direccion !== "abajo") {
+      return res.status(400).json({ error: "Direccion invalida" });
+    }
+    await moverProducto(rowNumber, direccion);
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
