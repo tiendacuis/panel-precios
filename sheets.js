@@ -65,8 +65,8 @@ async function getProductos() {
     .filter((p) => p.nombre); // ignora filas vacias al final
 }
 
-// Actualiza precio y/o activo de una fila puntual.
-async function actualizarProducto(rowNumber, { precio, activo }) {
+// Actualiza precio, imagen y/o activo de una fila puntual.
+async function actualizarProducto(rowNumber, { precio, activo, imagen }) {
   const sheets = await getSheetsClient();
   const sheetName = await getSheetName(sheets);
   const data = [];
@@ -75,6 +75,12 @@ async function actualizarProducto(rowNumber, { precio, activo }) {
     data.push({
       range: `${sheetName}!C${rowNumber}`,
       values: [[precio]],
+    });
+  }
+  if (imagen !== undefined) {
+    data.push({
+      range: `${sheetName}!F${rowNumber}`,
+      values: [[imagen]],
     });
   }
   if (activo !== undefined) {
