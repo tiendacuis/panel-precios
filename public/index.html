@@ -161,6 +161,20 @@
     border-radius: 4px;
     font-size: 13px;
   }
+  td input[type=text].img-url {
+    width: 150px;
+    padding: 6px 8px;
+    border: 1px solid var(--borde);
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--texto-suave);
+  }
+  .img-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-start;
+  }
   .categoria-tag {
     font-size: 10px;
     text-transform: uppercase;
@@ -245,6 +259,7 @@
           <th>Producto</th>
           <th>Categoría</th>
           <th>Precio</th>
+          <th>Imagen (URL)</th>
           <th>Activo</th>
           <th></th>
         </tr>
@@ -334,10 +349,15 @@ function render() {
 
   tbody.innerHTML = filtrados.map(p => `
     <tr data-row="${p.rowNumber}">
-      <td><img class="thumb" src="${p.imagen || ''}" onerror="this.style.visibility='hidden'" /></td>
+      <td><img class="thumb" data-preview src="${p.imagen || ''}" onerror="this.style.visibility='hidden'" /></td>
       <td>${p.nombre}</td>
       <td><span class="categoria-tag">${p.categoria}</span></td>
       <td><input type="number" step="1" value="${p.precio}" data-field="precio" /></td>
+      <td>
+        <div class="img-cell">
+          <input type="text" class="img-url" data-field="imagen" value="${p.imagen || ''}" placeholder="URL de la imagen" oninput="actualizarPreview(this)" />
+        </div>
+      </td>
       <td>
         <label class="switch">
           <input type="checkbox" data-field="activo" ${p.activo ? 'checked' : ''} />
@@ -349,10 +369,16 @@ function render() {
   `).join('');
 }
 
+function actualizarPreview(input) {
+  const tr = input.closest('tr');
+  tr.querySelector('[data-preview]').src = input.value;
+}
+
 async function guardar(rowNumber, btn) {
   const tr = btn.closest('tr');
   const precio = Number(tr.querySelector('[data-field="precio"]').value);
   const activo = tr.querySelector('[data-field="activo"]').checked;
+  const imagen = tr.querySelector('[data-field="imagen"]').value.trim();
 
   btn.disabled = true;
   btn.textContent = 'Guardando...';
@@ -361,12 +387,12 @@ async function guardar(rowNumber, btn) {
     const r = await fetch('/api/productos/' + rowNumber, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ precio, activo })
+      body: JSON.stringify({ precio, activo, imagen })
     });
     if (!r.ok) throw new Error('Error al guardar');
 
     const p = productos.find(p => p.rowNumber === rowNumber);
-    if (p) { p.precio = precio; p.activo = activo; }
+    if (p) { p.precio = precio; p.activo = activo; p.imagen = imagen; }
 
     btn.textContent = '✓ Guardado';
     btn.classList.add('ok');
