@@ -215,6 +215,17 @@
     cursor: default;
   }
   .save-btn.ok { background: #6b9b6f; }
+  .delete-btn {
+    background: transparent;
+    color: #c0392b;
+    border: 1px solid #e0b4ae;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-left: 6px;
+  }
+  .delete-btn:hover { background: #fbe9e7; }
   .switch {
     position: relative;
     display: inline-block;
@@ -620,11 +631,11 @@ async function guardarOrden() {
   btn.disabled = true;
   btn.textContent = 'Guardando orden...';
   try {
-    const ids = productos.map(p => p.id);
+    const rowNumbers = productos.map(p => p.rowNumber);
     const r = await fetch('/api/productos/orden', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids })
+      body: JSON.stringify({ rowNumbers })
     });
     if (!r.ok) throw new Error('Error al guardar el orden');
     ordenSucio = false;
@@ -680,7 +691,9 @@ function render() {
           <span class="slider"></span>
         </label>
       </td>
-      <td><button class="save-btn" onclick="guardar(${p.rowNumber}, this)">Guardar</button></td>
+      <td>
+        <button class="save-btn" onclick="guardar(${p.rowNumber}, this)">Guardar</button><button class="delete-btn" title="Eliminar producto" onclick="eliminarProducto(${p.rowNumber}, '${p.nombre.replace(/'/g, "\\'")}', this)">🗑</button>
+      </td>
     </tr>
   `;
   }).join('');
@@ -734,6 +747,25 @@ async function guardar(rowNumber, btn) {
 
 function descargarPDF() {
   window.open('/api/catalogo.pdf', '_blank');
+}
+
+async function eliminarProducto(rowNumber, nombre, btn) {
+  const confirmado = confirm(`¿Eliminar "${nombre}" definitivamente? Esta acción no se puede deshacer.`);
+  if (!confirmado) return;
+
+  btn.disabled = true;
+  const tr = btn.closest('tr');
+  if (tr) tr.style.opacity = '0.4';
+
+  try {
+    const r = await fetch('/api/productos/' + rowNumber, { method: 'DELETE' });
+    if (!r.ok) throw new Error('Error al eliminar');
+    await cargarProductos();
+  } catch (err) {
+    alert('No se pudo eliminar el producto');
+    btn.disabled = false;
+    if (tr) tr.style.opacity = '1';
+  }
 }
 
 checkSession();
