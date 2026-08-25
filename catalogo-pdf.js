@@ -62,7 +62,8 @@ function drawCategoriaHeader(doc, pageWidth, categoria) {
   doc.y = startY + barHeight + 18;
 }
 
-async function generarCatalogoPDF(productos, res) {
+async function generarCatalogoPDF(productos, res, opciones = {}) {
+  const { textoPortada = "" } = opciones;
   const doc = new PDFDocument({ size: "A4", margin: 40, bufferPages: true });
   const pageWidth = doc.page.width;
 
@@ -94,14 +95,24 @@ async function generarCatalogoPDF(productos, res) {
     .fontSize(11)
     .fillColor(COLORS.textoSuave)
     .text(`Actualizado el ${new Date().toLocaleDateString("es-AR")}`, 40, 275);
+
+  let yContacto = 310;
+  if (textoPortada && textoPortada.trim()) {
+    doc.font("Helvetica").fontSize(11).fillColor(COLORS.texto);
+    const anchoTexto = pageWidth - 80;
+    const alturaTexto = doc.heightOfString(textoPortada, { width: anchoTexto });
+    doc.text(textoPortada, 40, 300, { width: anchoTexto });
+    yContacto = 300 + alturaTexto + 20;
+  }
+
   doc
     .fontSize(10)
     .fillColor(COLORS.naranja)
     .font("Helvetica-Bold")
-    .text("WhatsApp: 11 2325 1963", 40, 300)
+    .text("WhatsApp: 11 2325 1963", 40, yContacto)
     .fillColor(COLORS.textoSuave)
     .font("Helvetica")
-    .text("www.tiendacuis.com  ·  Solo venta mayorista", 40, 316);
+    .text("www.tiendacuis.com  ·  Solo venta mayorista", 40, yContacto + 16);
 
   // --- Agrupar por categoria ---
   const porCategoria = {};
