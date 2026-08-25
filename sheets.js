@@ -7,6 +7,7 @@ const SHEET_GID = Number(process.env.GOOGLE_SHEET_GID || 0);
 // A id | B nombre | C precio | D categoria | E descripcion | F imagen | G activo | H destacado
 const COLUMNS = ["id", "nombre", "precio", "categoria", "descripcion", "imagen", "activo", "destacado"];
 const LAST_COL = "H";
+const CELDA_PORTADA = "J1"; // celda reservada (fuera de las columnas de productos) para el texto de portada del catalogo
 
 function getAuth() {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
@@ -122,36 +123,35 @@ function productoARow(p) {
     p.descripcion || "",
     p.imagen || "",
     p.activo ? "TRUE" : "FALSE",
-    p.destacado ? "TRUE" : "FALSE",
+    "FALSE", // destacado ya no se usa: siempre se graba en FALSE
   ];
 }
 
-// Mueve un producto una posicion hacia arriba o abajo, intercambiando
-// el contenido completo de la fila con la del vecino. Trabaja sobre
-// el orden real de filas del Sheet (que es el orden por defecto del sitio).
-async function moverProducto(rowNumber, direccion) {
-  const productos = (await getProductos()).sort((a, b) => a.rowNumber - b.rowNumber);
-  const idx = productos.findIndex((p) => p.rowNumber === rowNumber);
-  if (idx === -1) throw new Error("Producto no encontrado");
-
-  const targetIdx = direccion === "arriba" ? idx - 1 : idx + 1;
-  if (targetIdx < 0 || targetIdx >= productos.length) return; // ya esta en la punta
-
-  const actual = productos[idx];
-  const vecino = productos[targetIdx];
-
+// Reordena TODA la lista de una vez, segun el array de ids recibido
+// (en el orden visual que dejo el usuario arrastrando filas). Reescribe
+// el bloque completo A:H, asi que de paso limpia cualquier "destacado"
+// viejo que estuviera interfiriendo con el orden en el sitio.
+async function reordenarProductos(ids) {
   const sheets = await getSheetsClient();
   const sheetName = await getSheetName(sheets);
+  const productos = await getProductos();
 
-  await sheets.spreadsheets.values.batchUpdate({
+  if (ids.length !== productos.length) {
+    throw new Error("La lista de orden no coincide con la cantidad de productos");
+  }
+
+  const porId = new Map(productos.map((p) => [String(p.id), p]));
+  const filas = ids.map((id) => {
+    const p = porId.get(String(id));
+    if (!p) throw new Error(`Producto con id ${id} no encontrado`);
+    return productoARow(p);
+  });
+
+  await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    requestBody: {
-      valueInputOption: "USER_ENTERED",
-      data: [
-        { range: `${sheetName}!A${actual.rowNumber}:${LAST_COL}${actual.rowNumber}`, values: [productoARow(vecino)] },
-        { range: `${sheetName}!A${vecino.rowNumber}:${LAST_COL}${vecino.rowNumber}`, values: [productoARow(actual)] },
-      ],
-    },
+    range: `${sheetName}!A1:${LAST_COL}${filas.length}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: filas },
   });
 }
 
@@ -175,7 +175,7 @@ async function agregarProducto({ nombre, precio, categoria, descripcion, imagen,
     descripcion || "",
     imagen || "",
     activo === false ? "FALSE" : "TRUE",
-    "FALSE",
+    "FALSE", // destacado ya no se usa
   ];
 
   await sheets.spreadsheets.values.append({
@@ -189,4 +189,31 @@ async function agregarProducto({ nombre, precio, categoria, descripcion, imagen,
   return { id: nuevoId };
 }
 
-module.exports = { getProductos, actualizarProducto, moverProducto, agregarProducto, COLUMNS };
+// Texto libre para la portada del catalogo PDF (subtitulo, promo, lo que sea).
+// Se guarda en una celda del mismo Sheet, fuera de las columnas de productos.
+async function obtenerTextoPortada() {
+  const sheets = await getSheetsClient();
+  const sheetName = await getSheetName(sheets);
+  try {
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${sheetName}!${CELDA_PORTADA}`,
+    });
+    return res.data.values?.[0]?.[0] || "";
+  } catch (err) {
+    return "";
+  }
+}
+
+async function guardarTextoPortada(texto) {
+  const sheets = await getSheetsClient();
+  const sheetName = await getSheetName(sheets);
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!${CELDA_PORTADA}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[texto || ""]] },
+  });
+}
+
+module.exports = { getProductos, actualizarProducto, reordenarProductos, agregarProducto, obtenerTextoPortada, guardarTextoPortada, COLUMNS };
