@@ -291,25 +291,26 @@
     font-weight: 600;
     height: 37px;
   }
-  .mover-cell {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .mover-btn {
-    background: #F4F1EC;
-    border: 1px solid var(--borde);
-    border-radius: 3px;
-    width: 22px;
-    height: 18px;
-    font-size: 10px;
-    cursor: pointer;
-    line-height: 1;
+  .drag-handle {
+    cursor: grab;
     color: var(--texto-suave);
+    font-size: 16px;
+    user-select: none;
+    padding: 0 6px;
   }
-  .mover-btn:disabled {
-    opacity: 0.3;
-    cursor: default;
+  .drag-handle:active { cursor: grabbing; }
+  tr.arrastrando { opacity: 0.4; }
+  tr.zona-drop { border-top: 2px solid var(--naranja); }
+  .btn-guardar-orden {
+    background: var(--naranja-oscuro);
+    color: #fff;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 600;
+    white-space: nowrap;
   }
   #aviso-orden {
     font-size: 12px;
@@ -319,6 +320,42 @@
     border-radius: 4px;
     padding: 8px 12px;
     margin-bottom: 12px;
+  }
+  #seccion-portada {
+    background: #fff;
+    border: 1px solid var(--borde);
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  #seccion-portada label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--texto-suave);
+    display: block;
+    margin-bottom: 6px;
+  }
+  #seccion-portada textarea {
+    width: 100%;
+    min-height: 60px;
+    padding: 8px 10px;
+    border: 1px solid var(--borde);
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: inherit;
+    resize: vertical;
+    margin-bottom: 8px;
+  }
+  .btn-guardar-portada {
+    background: var(--navy);
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    font-weight: 600;
   }
 </style>
 </head>
@@ -344,7 +381,15 @@
         <option value="todos">Todas las categorías</option>
       </select>
       <button class="btn-toggle-nuevo" onclick="toggleFormNuevo()">+ Nuevo producto</button>
+      <button class="btn-guardar-orden hidden" id="btn-guardar-orden" onclick="guardarOrden()">💾 Guardar orden</button>
+      <button class="btn-pdf" onclick="toggleSeccionPortada()">📝 Texto de portada</button>
       <button class="btn-pdf" onclick="descargarPDF()">⬇ Descargar catálogo PDF</button>
+    </div>
+
+    <div id="seccion-portada" class="hidden">
+      <label>Texto libre para la portada del catálogo (subtítulo, promo, lo que quieras agregar)</label>
+      <textarea id="texto-portada" placeholder="Ej: Envíos a todo el país. Pedido mínimo $50.000. Precios sujetos a modificación sin previo aviso."></textarea>
+      <button class="btn-guardar-portada" onclick="guardarPortada()">Guardar texto de portada</button>
     </div>
 
     <div id="form-nuevo" class="hidden">
@@ -368,7 +413,7 @@
       <button class="btn-agregar" onclick="agregarProducto()">Agregar</button>
     </div>
 
-    <div id="aviso-orden" class="hidden">Limpiá la búsqueda y elegí "Todas las categorías" para poder reordenar productos.</div>
+    <div id="aviso-orden" class="hidden">Limpiá la búsqueda y elegí "Todas las categorías" para poder arrastrar y reordenar productos.</div>
     <div id="estado">Cargando productos...</div>
     <table>
       <thead>
@@ -431,6 +476,42 @@ function mostrarApp() {
   document.getElementById('login-view').classList.add('hidden');
   document.getElementById('app-view').classList.remove('hidden');
   cargarProductos();
+  cargarPortada();
+}
+
+async function cargarPortada() {
+  try {
+    const r = await fetch('/api/portada');
+    if (!r.ok) return;
+    const data = await r.json();
+    document.getElementById('texto-portada').value = data.texto || '';
+  } catch (err) {
+    // si falla, se puede seguir usando el panel sin este dato
+  }
+}
+
+function toggleSeccionPortada() {
+  document.getElementById('seccion-portada').classList.toggle('hidden');
+}
+
+async function guardarPortada() {
+  const btn = document.querySelector('.btn-guardar-portada');
+  const texto = document.getElementById('texto-portada').value;
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+  try {
+    const r = await fetch('/api/portada', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texto })
+    });
+    if (!r.ok) throw new Error('Error al guardar');
+    btn.textContent = '✓ Guardado';
+    setTimeout(() => { btn.textContent = 'Guardar texto de portada'; btn.disabled = false; }, 1500);
+  } catch (err) {
+    btn.textContent = 'Error al guardar';
+    setTimeout(() => { btn.textContent = 'Guardar texto de portada'; btn.disabled = false; }, 2000);
+  }
 }
 
 async function cargarProductos() {
@@ -495,19 +576,65 @@ async function agregarProducto() {
   }
 }
 
-async function mover(rowNumber, direccion, btn) {
+let ordenSucio = false;
+let draggedRowNumber = null;
+
+function dragStart(e, rowNumber) {
+  draggedRowNumber = rowNumber;
+  e.dataTransfer.effectAllowed = 'move';
+  e.target.closest('tr').classList.add('arrastrando');
+}
+
+function dragEnd(e) {
+  e.target.closest('tr').classList.remove('arrastrando');
+  document.querySelectorAll('tr.zona-drop').forEach(tr => tr.classList.remove('zona-drop'));
+}
+
+function dragOver(e) {
+  e.preventDefault();
+  const tr = e.target.closest('tr');
+  if (!tr) return;
+  document.querySelectorAll('tr.zona-drop').forEach(t => t.classList.remove('zona-drop'));
+  tr.classList.add('zona-drop');
+}
+
+function drop(e, targetRowNumber) {
+  e.preventDefault();
+  document.querySelectorAll('tr.zona-drop').forEach(tr => tr.classList.remove('zona-drop'));
+  if (draggedRowNumber === null || draggedRowNumber === targetRowNumber) return;
+
+  const fromIdx = productos.findIndex(p => p.rowNumber === draggedRowNumber);
+  const toIdx = productos.findIndex(p => p.rowNumber === targetRowNumber);
+  if (fromIdx === -1 || toIdx === -1) return;
+
+  const [item] = productos.splice(fromIdx, 1);
+  productos.splice(toIdx, 0, item);
+  draggedRowNumber = null;
+  ordenSucio = true;
+  document.getElementById('btn-guardar-orden').classList.remove('hidden');
+  render();
+}
+
+async function guardarOrden() {
+  const btn = document.getElementById('btn-guardar-orden');
   btn.disabled = true;
+  btn.textContent = 'Guardando orden...';
   try {
-    const r = await fetch(`/api/productos/${rowNumber}/mover`, {
+    const ids = productos.map(p => p.id);
+    const r = await fetch('/api/productos/orden', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ direccion })
+      body: JSON.stringify({ ids })
     });
-    if (!r.ok) throw new Error('Error al mover');
+    if (!r.ok) throw new Error('Error al guardar el orden');
+    ordenSucio = false;
+    btn.classList.add('hidden');
     await cargarProductos();
   } catch (err) {
-    alert('No se pudo mover el producto');
+    alert('No se pudo guardar el orden');
+  } finally {
     btn.disabled = false;
+    btn.textContent = '💾 Guardar orden';
   }
 }
 
@@ -526,18 +653,18 @@ function render() {
     return matchNombre && matchCat;
   });
 
-  tbody.innerHTML = filtrados.map((p, idx) => {
-    const esPrimero = idx === 0;
-    const esUltimo = idx === filtrados.length - 1;
-    const flechas = sinFiltros ? `
-      <div class="mover-cell">
-        <button class="mover-btn" ${esPrimero ? 'disabled' : ''} onclick="mover(${p.rowNumber}, 'arriba', this)">▲</button>
-        <button class="mover-btn" ${esUltimo ? 'disabled' : ''} onclick="mover(${p.rowNumber}, 'abajo', this)">▼</button>
-      </div>` : '';
+  tbody.innerHTML = filtrados.map((p) => {
+    const manija = sinFiltros
+      ? `<span class="drag-handle" draggable="true" ondragstart="dragStart(event, ${p.rowNumber})" ondragend="dragEnd(event)">⠿</span>`
+      : '';
+
+    const atributosDrop = sinFiltros
+      ? `ondragover="dragOver(event)" ondrop="drop(event, ${p.rowNumber})"`
+      : '';
 
     return `
-    <tr data-row="${p.rowNumber}">
-      <td>${flechas}</td>
+    <tr data-row="${p.rowNumber}" ${atributosDrop}>
+      <td>${manija}</td>
       <td><img class="thumb" data-preview src="${p.imagen || ''}" onerror="this.style.visibility='hidden'" /></td>
       <td><input type="text" class="nombre-input" value="${p.nombre}" data-field="nombre" /></td>
       <td><input type="text" class="categoria-input" list="lista-categorias" value="${p.categoria}" data-field="categoria" /></td>
