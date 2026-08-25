@@ -86,23 +86,18 @@ async function generarCatalogoPDF(productos, res, opciones = {}) {
     .text("MAYORISTA DE MATES Y ARTICULOS REGIONALES", 40, 130, { characterSpacing: 2 });
 
   doc
-    .fillColor(COLORS.texto)
-    .font("Helvetica-Bold")
-    .fontSize(22)
-    .text("Catalogo mayorista", 40, 240);
-  doc
     .font("Helvetica")
     .fontSize(11)
     .fillColor(COLORS.textoSuave)
-    .text(`Actualizado el ${new Date().toLocaleDateString("es-AR")}`, 40, 275);
+    .text(`Actualizado el ${new Date().toLocaleDateString("es-AR")}`, 40, 230);
 
-  let yContacto = 310;
+  let yContacto = 265;
   if (textoPortada && textoPortada.trim()) {
     doc.font("Helvetica").fontSize(11).fillColor(COLORS.texto);
     const anchoTexto = pageWidth - 80;
     const alturaTexto = doc.heightOfString(textoPortada, { width: anchoTexto });
-    doc.text(textoPortada, 40, 300, { width: anchoTexto });
-    yContacto = 300 + alturaTexto + 20;
+    doc.text(textoPortada, 40, 255, { width: anchoTexto });
+    yContacto = 255 + alturaTexto + 20;
   }
 
   doc
