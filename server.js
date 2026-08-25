@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const session = require("express-session");
 const path = require("path");
-const { getProductos, actualizarProducto, reordenarProductos, agregarProducto, obtenerTextoPortada, guardarTextoPortada } = require("./sheets");
+const { getProductos, actualizarProducto, reordenarProductos, agregarProducto, eliminarProducto, obtenerTextoPortada, guardarTextoPortada } = require("./sheets");
 const { generarCatalogoPDF } = require("./catalogo-pdf");
 
 const app = express();
@@ -80,11 +80,22 @@ app.post("/api/productos", requireLogin, async (req, res) => {
 
 app.post("/api/productos/orden", requireLogin, async (req, res) => {
   try {
-    const { ids } = req.body || {};
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({ error: "Falta la lista de ids en el nuevo orden" });
+    const { rowNumbers } = req.body || {};
+    if (!Array.isArray(rowNumbers) || rowNumbers.length === 0) {
+      return res.status(400).json({ error: "Falta la lista de filas en el nuevo orden" });
     }
-    await reordenarProductos(ids);
+    await reordenarProductos(rowNumbers);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/productos/:rowNumber", requireLogin, async (req, res) => {
+  try {
+    const rowNumber = Number(req.params.rowNumber);
+    await eliminarProducto(rowNumber);
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
