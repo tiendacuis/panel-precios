@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const session = require("express-session");
 const path = require("path");
-const { getProductos, actualizarProducto, moverProducto, agregarProducto } = require("./sheets");
+const { getProductos, actualizarProducto, reordenarProductos, agregarProducto, obtenerTextoPortada, guardarTextoPortada } = require("./sheets");
 const { generarCatalogoPDF } = require("./catalogo-pdf");
 
 const app = express();
@@ -78,14 +78,34 @@ app.post("/api/productos", requireLogin, async (req, res) => {
   }
 });
 
-app.post("/api/productos/:rowNumber/mover", requireLogin, async (req, res) => {
+app.post("/api/productos/orden", requireLogin, async (req, res) => {
   try {
-    const rowNumber = Number(req.params.rowNumber);
-    const { direccion } = req.body || {};
-    if (direccion !== "arriba" && direccion !== "abajo") {
-      return res.status(400).json({ error: "Direccion invalida" });
+    const { ids } = req.body || {};
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "Falta la lista de ids en el nuevo orden" });
     }
-    await moverProducto(rowNumber, direccion);
+    await reordenarProductos(ids);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/portada", requireLogin, async (req, res) => {
+  try {
+    const texto = await obtenerTextoPortada();
+    res.json({ texto });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/portada", requireLogin, async (req, res) => {
+  try {
+    const { texto } = req.body || {};
+    await guardarTextoPortada(texto || "");
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -96,8 +116,11 @@ app.post("/api/productos/:rowNumber/mover", requireLogin, async (req, res) => {
 // --- Catalogo PDF ---
 app.get("/api/catalogo.pdf", requireLogin, async (req, res) => {
   try {
-    const productos = (await getProductos()).filter((p) => p.activo);
-    await generarCatalogoPDF(productos, res);
+    const [productos, textoPortada] = await Promise.all([
+      getProductos().then((lista) => lista.filter((p) => p.activo)),
+      obtenerTextoPortada(),
+    ]);
+    await generarCatalogoPDF(productos, res, { textoPortada });
   } catch (err) {
     console.error(err);
     if (!res.headersSent) res.status(500).json({ error: err.message });
