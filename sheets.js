@@ -127,23 +127,25 @@ function productoARow(p) {
   ];
 }
 
-// Reordena TODA la lista de una vez, segun el array de ids recibido
-// (en el orden visual que dejo el usuario arrastrando filas). Reescribe
-// el bloque completo A:H, asi que de paso limpia cualquier "destacado"
-// viejo que estuviera interfiriendo con el orden en el sitio.
-async function reordenarProductos(ids) {
+// Reordena TODA la lista de una vez, segun el array de rowNumbers recibido
+// (en el orden visual que dejo el usuario arrastrando filas). Usamos
+// rowNumber -no el codigo "id" del producto- porque el id puede repetirse
+// entre productos (viene del Excel viejo) y eso pisaba datos al reordenar.
+// Reescribe el bloque completo A:H, asi que de paso limpia cualquier
+// "destacado" viejo que estuviera interfiriendo con el orden en el sitio.
+async function reordenarProductos(rowNumbers) {
   const sheets = await getSheetsClient();
   const sheetName = await getSheetName(sheets);
   const productos = await getProductos();
 
-  if (ids.length !== productos.length) {
+  if (rowNumbers.length !== productos.length) {
     throw new Error("La lista de orden no coincide con la cantidad de productos");
   }
 
-  const porId = new Map(productos.map((p) => [String(p.id), p]));
-  const filas = ids.map((id) => {
-    const p = porId.get(String(id));
-    if (!p) throw new Error(`Producto con id ${id} no encontrado`);
+  const porFila = new Map(productos.map((p) => [p.rowNumber, p]));
+  const filas = rowNumbers.map((rowNumber) => {
+    const p = porFila.get(Number(rowNumber));
+    if (!p) throw new Error(`No se encontro la fila ${rowNumber} (¿se modifico la lista mientras se reordenaba?)`);
     return productoARow(p);
   });
 
@@ -216,4 +218,34 @@ async function guardarTextoPortada(texto) {
   });
 }
 
-module.exports = { getProductos, actualizarProducto, reordenarProductos, agregarProducto, obtenerTextoPortada, guardarTextoPortada, COLUMNS };
+// Elimina un producto definitivamente: reescribe la lista sin esa fila
+// y limpia la fila sobrante que queda al final (para no dejar datos viejos).
+async function eliminarProducto(rowNumber) {
+  const sheets = await getSheetsClient();
+  const sheetName = await getSheetName(sheets);
+  const productos = await getProductos();
+
+  const restantes = productos.filter((p) => p.rowNumber !== Number(rowNumber));
+  if (restantes.length === productos.length) {
+    throw new Error("Producto no encontrado");
+  }
+
+  const filas = restantes.map((p) => productoARow(p));
+
+  if (filas.length > 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${sheetName}!A1:${LAST_COL}${filas.length}`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values: filas },
+    });
+  }
+
+  // Limpia la(s) fila(s) que quedaron de mas al final (una menos que antes)
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A${filas.length + 1}:${LAST_COL}${productos.length}`,
+  });
+}
+
+module.exports = { getProductos, actualizarProducto, reordenarProductos, agregarProducto, eliminarProducto, obtenerTextoPortada, guardarTextoPortada, COLUMNS };
